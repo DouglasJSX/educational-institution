@@ -90,7 +90,7 @@ O sistema oferece as seguintes operações:
 ### Interface
 O sistema utiliza uma interface textual simples com um menu de opções numeradas para acessar cada funcionalidade.
 
-### Tecnologias Utilizadasv
+### Tecnologias Utilizadas
 
 <ul>
   <li>
