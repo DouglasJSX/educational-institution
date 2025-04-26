@@ -313,17 +313,183 @@ void insertStudentToGroup(int code, int classCode, int groupValue) {
   if (auxGroup->startStudent == NULL) {
     auxGroup->startStudent = auxStudent;
   } else {
+    // Salvar os ponteiros next e prev originais do aluno
+    Student *nextOriginal = auxStudent->next;
+    Student *prevOriginal = auxStudent->prev;
+    
     // Procurar o último aluno do grupo
     Student *lastStudent = auxGroup->startStudent;
-    while (lastStudent->next != NULL && lastStudent->groupValue == groupValue) {
+    while (lastStudent->next != NULL) {
       lastStudent = lastStudent->next;
     }
-    // Adicionar o novo aluno ao final
-    lastStudent->next = auxStudent;
-    auxStudent->prev = lastStudent;
+    
+    // Reestabelecer os ponteiros originais do aluno
+    auxStudent->next = nextOriginal;
+    auxStudent->prev = prevOriginal;
   }
 }
 
+void removeStudent(int studentCode, int classCode) {
+  Class *currentClass = startClass;
+  
+  // Encontrar a turma do aluno
+  while (currentClass != NULL) {
+    if (currentClass->code == classCode) {
+      break;
+    }
+    currentClass = currentClass->next;
+  }
+  
+  if (currentClass == NULL) {
+    printf("Turma não encontrada\n");
+    return;
+  }
+  
+  Student *currentStudent = currentClass->startStudent;
+  Student *previousStudent = NULL;
+  
+  // Buscar o aluno na lista de alunos da turma
+  while (currentStudent != NULL) {
+    if (currentStudent->code == studentCode) {
+      // Remover das listas duplamente encadeadas
+      if (previousStudent != NULL) {
+        previousStudent->next = currentStudent->next;
+      } else {
+        currentClass->startStudent = currentStudent->next;
+      }
+      
+      if (currentStudent->next != NULL) {
+        currentStudent->next->prev = previousStudent;
+      }
+      
+      // Se o aluno está em um grupo, atualizar o contador do grupo
+      if (currentStudent->groupValue > 0) {
+        Group *group = currentClass->startGroup;
+        while (group != NULL) {
+          if (group->groupValue == currentStudent->groupValue) {
+            group->qtdStudents--;
+            
+            // Se este aluno era o primeiro do grupo, atualizar o ponteiro
+            if (group->startStudent == currentStudent) {
+              group->startStudent = currentStudent->next;
+            }
+            break;
+          }
+          group = group->next;
+        }
+      }
+      
+      // Atualizar contadores
+      currentClass->qtdStudents--;
+      header.qtdStudents--;
+      
+      // Liberar memória
+      free(currentStudent);
+      return;
+    }
+    
+    previousStudent = currentStudent;
+    currentStudent = currentStudent->next;
+  }
+  
+  printf("Aluno não encontrado\n");
+}
+
+void removeGroup(Group *groupToRemove, Class *parentClass) {
+  if (groupToRemove == NULL || parentClass == NULL) {
+    return;
+  }
+  
+  // Remover todos os alunos do grupo (modificar apenas o campo groupValue)
+  Student *currentStudent = parentClass->startStudent;
+  while (currentStudent != NULL) {
+    if (currentStudent->groupValue == groupToRemove->groupValue) {
+      currentStudent->groupValue = 0; // Aluno não pertence mais a nenhum grupo
+    }
+    currentStudent = currentStudent->next;
+  }
+  
+  // Remover o grupo da lista
+  Group *previousGroup = NULL;
+  Group *currentGroup = parentClass->startGroup;
+  
+  while (currentGroup != NULL) {
+    if (currentGroup == groupToRemove) {
+      if (previousGroup == NULL) {
+        parentClass->startGroup = currentGroup->next;
+      } else {
+        previousGroup->next = currentGroup->next;
+      }
+      
+      if (currentGroup->next != NULL) {
+        currentGroup->next->prev = previousGroup;
+      }
+      
+      // Atualizar contadores
+      parentClass->qtdGroups--;
+      header.qtdGroups--;
+      
+      // Liberar memória
+      free(groupToRemove);
+      return;
+    }
+    
+    previousGroup = currentGroup;
+    currentGroup = currentGroup->next;
+  }
+}
+
+void removeClassAndDescendants(int classCode) {
+  Class *currentClass = startClass;
+  Class *previousClass = NULL;
+  
+  while (currentClass != NULL) {
+    if (currentClass->code == classCode) {
+      // Remover todos os grupos da turma
+      Group *currentGroup = currentClass->startGroup;
+      while (currentGroup != NULL) {
+        Group *nextGroup = currentGroup->next;
+        removeGroup(currentGroup, currentClass);
+        currentGroup = nextGroup;
+      }
+      
+      // Remover todos os alunos da turma
+      Student *currentStudent = currentClass->startStudent;
+      while (currentStudent != NULL) {
+        Student *nextStudent = currentStudent->next;
+        // Não precisamos chamar removeStudent aqui para evitar modificações na lista durante a iteração
+        free(currentStudent);
+        header.qtdStudents--;
+        currentStudent = nextStudent;
+      }
+      
+      // Remover a turma da lista
+      if (previousClass == NULL) {
+        startClass = currentClass->next;
+      } else {
+        previousClass->next = currentClass->next;
+      }
+      
+      if (currentClass->next != NULL) {
+        currentClass->next->prev = previousClass;
+      }
+      
+      // Atualizar contador
+      header.qtdClasses--;
+      
+      // Liberar memória
+      free(currentClass);
+      return;
+    }
+    
+    previousClass = currentClass;
+    currentClass = currentClass->next;
+  }
+  
+  printf("Turma não encontrada\n");
+}
+
+// SOMENTE PARA TESTE DAS INCLUSÕES
 void write() {
   Class *auxClass = startClass;
 
@@ -386,10 +552,14 @@ int main() {
   header.qtdStudents = 0;
 
   insertOrderedClass(204);
-  insertOrderedClass(305);
   insertOrderedStudent("Matheus", 1, 204);
   insertOrderedStudent("Ana", 2, 204);
-  insertStudentToGroup(1, 204, 1);
+  insertOrderedStudent("Douglas", 3, 204);
+  insertOrderedStudent("Giovanna", 4, 204);
+  insertOrderedStudent("Cleusas", 5, 204);
+  insertStudentToGroup(1, 204, 128);
+  insertStudentToGroup(2, 204, 128);
+  insertStudentToGroup(4, 204, 125);
   write();
 
   return 0;
