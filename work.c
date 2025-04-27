@@ -503,9 +503,9 @@ void write() {
     
     // Listar alunos da turma
     if (auxClass->startStudent == NULL) {
-      printf("Students: Nobody\n");
+      printf("Alunos: Nobody\n");
     } else {
-      printf("Students: \n");
+      printf("Alunos: \n");
       Student *auxStudent = auxClass->startStudent;
       while (auxStudent != NULL) {
         printf("Cod.%d - %s\n", auxStudent->code, auxStudent->name);
@@ -515,22 +515,22 @@ void write() {
     
     // Listar grupos e seus alunos
     if (auxClass->startGroup == NULL) {
-      printf("Groups: Nobody\n");
+      printf("Grupo: Nobody\n");
     } else {
-      printf("Groups: \n");
+      printf("Grupo(s): \n");
       Group *auxGroup = auxClass->startGroup;
       
       while (auxGroup != NULL) {
-        printf("Group: %d\n", auxGroup->groupValue);
+        printf("Gropo: %d\n", auxGroup->groupValue);
         
         if (auxGroup->startStudent == NULL) {
-          printf("  Students: Nobody\n");
+          printf("  Alunos: Nobody\n");
         } else {
-          printf("  Students: \n");
+          printf("  Alunos: \n");
           Student *auxStudent = auxClass->startStudent;
           while (auxStudent != NULL) {
             if (auxStudent->groupValue == auxGroup->groupValue) {
-              printf("  Cod.%d - %s\n", auxStudent->code, auxStudent->name);
+              printf("    Cod.%d - %s\n", auxStudent->code, auxStudent->name);
             }
             auxStudent = auxStudent->next;
           }
@@ -540,6 +540,101 @@ void write() {
     }
     
     auxClass = auxClass->next;
+  }
+}
+
+void consultClass(){
+  Class *aux = startClass;
+  int count = 0;
+
+  if (startClass == NULL) {
+    printf("\nNenhuma turma cadastrada\n");
+    return;
+  }
+
+  printf("\n\nTurmas cadastradas:\n");
+
+  while (aux != NULL) {
+    printf("Turma %d: %d\n", ++count, aux->code);
+    aux = aux->next;
+  }
+}
+
+void consultStudents(int classCode){
+  Class *auxClass = startClass;
+  int found = 0;
+
+  while (auxClass != NULL) {
+    if (auxClass->code == classCode) {
+      found = 1;
+      break;
+    }
+    auxClass = auxClass->next;
+  }
+
+  if (found == 0) {
+    printf("\nTurma nao encontrada\n");
+    return;
+  }
+
+  if (auxClass->startStudent == NULL) {
+    printf("\nNenhum aluno cadastrado\n");
+    return;
+  }
+
+  printf("\n\nAlunos da turma %d:\n", auxClass->code);
+
+  Student *aux = auxClass->startStudent;
+  int count = 0;
+
+  while (aux != NULL) {
+    printf("Aluno %d: %s\n", ++count, aux->name);
+    aux = aux->next;
+  }
+}
+
+void consultStudentsPerGroup(int classCode){
+  Class *auxClass = startClass;
+  int found = 0;
+
+  while (auxClass != NULL) {
+    if (auxClass->code == classCode) {
+      found = 1;
+      break;
+    }
+    auxClass = auxClass->next;
+  }
+
+  if (found == 0) {
+    printf("\nTurma nao encontrada\n");
+    return;
+  }
+
+  if (auxClass->startGroup == NULL) {
+    printf("\nNenhum grupo cadastrado\n");
+    return;
+  }
+
+  printf("\n\nGrupos da turma %d:\n", auxClass->code);
+
+  Group *auxGroup = auxClass->startGroup;
+      
+  while (auxGroup != NULL) {
+    printf("Gropo: %d\n", auxGroup->groupValue);
+    
+    if (auxGroup->startStudent == NULL) {
+      printf("  Alunos: Nobody\n");
+    } else {
+      printf("  Alunos: \n");
+      Student *auxStudent = auxClass->startStudent;
+      while (auxStudent != NULL) {
+        if (auxStudent->groupValue == auxGroup->groupValue) {
+          printf("    Cod.%d - %s\n", auxStudent->code, auxStudent->name);
+        }
+        auxStudent = auxStudent->next;
+      }
+    }
+    auxGroup = auxGroup->next;
   }
 }
 
@@ -560,7 +655,12 @@ int main() {
   insertStudentToGroup(1, 204, 128);
   insertStudentToGroup(2, 204, 128);
   insertStudentToGroup(4, 204, 125);
-  write();
+  insertOrderedClass(308);
+  insertOrderedClass(238);
+  insertOrderedClass(128);
+  // write();
+  // consultClass();
+  consultStudentsPerGroup(204);
 
   return 0;
 }
