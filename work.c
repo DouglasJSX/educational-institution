@@ -28,6 +28,15 @@ struct class {
 
 typedef struct class Class;
 
+struct studentInfo {
+  int code;
+  char name[100];
+  int count;
+  char classNames[10][100]; // até 10 turmas por aluno
+  struct studentInfo *next;
+};
+typedef struct studentInfo StudentInfo;
+
 struct header {
   int qtdClasses, qtdGroups, qtdStudents;
 } header;
@@ -638,6 +647,450 @@ void consultStudentsPerGroup(int classCode){
   }
 }
 
+void removeStudentFromClass(int classCode, int studentCode) {
+  Class *currentClass = startClass;
+
+  // Procurar a turma pelo código
+  while (currentClass != NULL && currentClass->code != classCode) {
+    currentClass = currentClass->next;
+  }
+
+  if (currentClass == NULL) {
+    printf("Turma com código %d não encontrada.\n", classCode);
+    return;
+  }
+
+  // Remover o aluno da lista de alunos da turma
+  Student *prevStudent = NULL;
+  Student *currStudent = currentClass->startStudent;
+
+  while (currStudent != NULL && currStudent->code != studentCode) {
+    prevStudent = currStudent;
+    currStudent = currStudent->next;
+  }
+
+  if (currStudent == NULL) {
+    printf("Aluno com código %d não encontrado na turma %d.\n", studentCode, classCode);
+    return;
+  }
+
+  // Remove o aluno da lista
+  if (prevStudent == NULL) {
+    currentClass->startStudent = currStudent->next;
+  } else {
+    prevStudent->next = currStudent->next;
+  }
+
+  // Atualiza contadores
+  currentClass->qtdStudents--;
+  header.qtdStudents--;
+
+  // Remover o aluno de todos os grupos da turma
+  Group *group = currentClass->startGroup;
+  while (group != NULL) {
+    Student *prevInGroup = NULL;
+    Student *currInGroup = group->startStudent;
+
+    while (currInGroup != NULL) {
+      if (currInGroup->code == studentCode) {
+        if (prevInGroup == NULL) {
+          group->startStudent = currInGroup->next;
+        } else {
+          prevInGroup->next = currInGroup->next;
+        }
+        free(currInGroup);
+        group->qtdStudents--;
+        break; // O aluno não pode estar mais de uma vez no mesmo grupo
+      }
+      prevInGroup = currInGroup;
+      currInGroup = currInGroup->next;
+    }
+
+    group = group->next;
+  }
+
+  // Por fim, libera a memória do aluno da turma
+  free(currStudent);
+
+  printf("Aluno %d removido da turma %d e de qualquer grupo associado.\n", studentCode, classCode);
+}
+
+
+void removeStudentFromGroup(int classCode, int groupValue, int studentCode) {
+  Class *currentClass = startClass;
+
+  // Procurar a turma pelo código
+  while (currentClass != NULL && currentClass->code != classCode) {
+      currentClass = currentClass->next;
+  }
+
+  if (currentClass == NULL) {
+      printf("Turma com código %d não encontrada.\n", classCode);
+      return;
+  }
+
+  // Procurar o grupo pelo valor do grupo (groupValue)
+  Group *currentGroup = currentClass->startGroup;
+  while (currentGroup != NULL && currentGroup->groupValue != groupValue) {
+      currentGroup = currentGroup->next;
+  }
+
+  if (currentGroup == NULL) {
+      printf("Grupo com valor %d não encontrado na turma %d.\n", groupValue, classCode);
+      return;
+  }
+
+  // Procurar o aluno no grupo
+  Student *prevStudent = NULL;
+  Student *currStudent = currentGroup->startStudent;
+
+  while (currStudent != NULL && currStudent->code != studentCode) {
+      prevStudent = currStudent;
+      currStudent = currStudent->next;
+  }
+
+  if (currStudent == NULL) {
+      printf("Aluno com código %d não está no grupo %d da turma %d.\n", studentCode, groupValue, classCode);
+      return;
+  }
+
+  // Remover o aluno do grupo
+  if (prevStudent == NULL) {
+      currentGroup->startStudent = currStudent->next;
+  } else {
+      prevStudent->next = currStudent->next;
+  }
+
+  free(currStudent);
+  currentGroup->qtdStudents--;
+
+  printf("Aluno %d removido do grupo %d da turma %d.\n", studentCode, groupValue, classCode);
+}
+
+void listStudentsWithoutGroup(int classCode) {
+  Class *currentClass = startClass;
+
+  // Procurar a turma pelo código
+  while (currentClass != NULL && currentClass->code != classCode) {
+      currentClass = currentClass->next;
+  }
+
+  if (currentClass == NULL) {
+      printf("Turma com código %d não encontrada.\n", classCode);
+      return;
+  }
+
+  Student *student = currentClass->startStudent;
+  int found = 0;
+
+  while (student != NULL) {
+      int inGroup = 0;
+
+      // Verificar se o aluno está em algum grupo da turma
+      Group *group = currentClass->startGroup;
+      while (group != NULL) {
+          Student *groupStudent = group->startStudent;
+          while (groupStudent != NULL) {
+              if (groupStudent->code == student->code) {
+                  inGroup = 1;
+                  break;
+              }
+              groupStudent = groupStudent->next;
+          }
+          if (inGroup) break;
+          group = group->next;
+      }
+
+      if (!inGroup) {
+          printf("Aluno sem grupo: %s (código %d)\n", student->name, student->code);
+          found = 1;
+      }
+
+      student = student->next;
+  }
+
+  if (!found) {
+      printf("Todos os alunos da turma %d estão em grupos.\n", classCode);
+  }
+}
+
+void listStudentsInMultipleClasses() {
+  StudentInfo *studentList = NULL;
+  Class *currentClass = startClass;
+  int foundAny = 0;
+
+  // Primeiro passagem: coletar informações de todos os alunos
+  while (currentClass != NULL) {
+      Student *currentStudent = currentClass->startStudent;
+      
+      while (currentStudent != NULL) {
+          // Verificar se o aluno já está na nossa lista de informações
+          StudentInfo *info = studentList;
+          StudentInfo *prevInfo = NULL;
+          
+          while (info != NULL && info->code != currentStudent->code) {
+              prevInfo = info;
+              info = info->next;
+          }
+          
+          if (info == NULL) {
+              // Aluno não encontrado na lista, adicionar novo
+              info = (StudentInfo*) malloc(sizeof(StudentInfo));
+              info->code = currentStudent->code;
+              strcpy(info->name, currentStudent->name);
+              info->count = 1;
+              strcpy(info->classNames[0], ""); // Inicializa o primeiro elemento
+              sprintf(info->classNames[0], "Turma %d", currentClass->code);
+              info->next = studentList;
+              studentList = info;
+          } else {
+              // Aluno já existe na lista, incrementar contador
+              info->count++;
+              if (info->count <= 10) { // Só armazena até 10 turmas
+                  sprintf(info->classNames[info->count-1], "Turma %d", currentClass->code);
+              }
+          }
+          
+          currentStudent = currentStudent->next;
+      }
+      
+      currentClass = currentClass->next;
+  }
+
+  // Segunda passagem: imprimir alunos em mais de uma turma
+  printf("\nAlunos em mais de uma turma:\n");
+  printf("----------------------------\n");
+  
+  StudentInfo *info = studentList;
+  while (info != NULL) {
+      if (info->count > 1) {
+          foundAny = 1;
+          printf("Aluno: %s (Código: %d)\n", info->name, info->code);
+          printf("Quantidade de turmas: %d\n", info->count);
+          printf("Turmas: ");
+          
+          int maxClassesToShow = info->count > 10 ? 10 : info->count;
+          for (int i = 0; i < maxClassesToShow; i++) {
+              printf("%s", info->classNames[i]);
+              if (i < maxClassesToShow - 1) printf(", ");
+          }
+          
+          if (info->count > 10) {
+              printf(" e mais %d turmas", info->count - 10);
+          }
+          
+          printf("\n----------------------------\n");
+      }
+      
+      StudentInfo *temp = info;
+      info = info->next;
+      free(temp); // Liberar memória da lista temporária
+  }
+
+  if (!foundAny) {
+      printf("Nenhum aluno está em mais de uma turma.\n");
+  }
+}
+
+void listStudentsInSingleClass() {
+  StudentInfo *studentList = NULL;
+  Class *currentClass = startClass;
+  int foundAny = 0;
+
+  // Primeira passagem: coletar informações de todos os alunos
+  while (currentClass != NULL) {
+      Student *currentStudent = currentClass->startStudent;
+      
+      while (currentStudent != NULL) {
+          // Verificar se o aluno já está na nossa lista de informações
+          StudentInfo *info = studentList;
+          StudentInfo *prevInfo = NULL;
+          
+          while (info != NULL && info->code != currentStudent->code) {
+              prevInfo = info;
+              info = info->next;
+          }
+          
+          if (info == NULL) {
+              // Aluno não encontrado na lista, adicionar novo
+              info = (StudentInfo*) malloc(sizeof(StudentInfo));
+              info->code = currentStudent->code;
+              strcpy(info->name, currentStudent->name);
+              info->count = 1;
+              strcpy(info->classNames[0], ""); // Inicializa o primeiro elemento
+              sprintf(info->classNames[0], "Turma %d", currentClass->code);
+              info->next = studentList;
+              studentList = info;
+          } else {
+              // Aluno já existe na lista, incrementar contador
+              info->count++;
+              if (info->count <= 10) { // Só armazena até 10 turmas
+                  sprintf(info->classNames[info->count-1], "Turma %d", currentClass->code);
+              }
+          }
+          
+          currentStudent = currentStudent->next;
+      }
+      
+      currentClass = currentClass->next;
+  }
+
+  // Segunda passagem: imprimir alunos em apenas uma turma
+  printf("\nAlunos em apenas uma turma:\n");
+  printf("----------------------------\n");
+  
+  StudentInfo *info = studentList;
+  while (info != NULL) {
+      if (info->count == 1) {
+          foundAny = 1;
+          printf("Aluno: %s (Código: %d)\n", info->name, info->code);
+          printf("Turma: %s\n", info->classNames[0]);
+          printf("----------------------------\n");
+      }
+      
+      StudentInfo *temp = info;
+      info = info->next;
+      free(temp); // Liberar memória da lista temporária
+  }
+
+  if (!foundAny) {
+      printf("Nenhum aluno está em apenas uma turma (ou não há alunos cadastrados).\n");
+  }
+}
+
+void showMenu() {
+  int option;
+  char name[100];
+  int code, classCode, groupValue;
+  
+  do {
+      printf("\n\n=== MENU PRINCIPAL ===\n");
+      printf("1) Incluir nova turma\n");
+      printf("2) Remover turma\n");
+      printf("3) Consultar turmas\n");
+      printf("4) Incluir aluno na lista de alunos de uma turma\n");
+      printf("5) Remover aluno da lista de alunos de uma turma\n");
+      printf("6) Consultar alunos de uma turma\n");
+      printf("7) Incluir aluno no grupo de uma turma\n");
+      printf("8) Remover aluno do grupo de uma turma\n");
+      printf("9) Consultar alunos dos grupos de uma turma\n");
+      printf("10) Alunos sem grupo em uma turma\n");
+      printf("11) Alunos em mais de uma turma\n");
+      printf("12) Alunos em apenas uma turma\n");
+      printf("0) Sair\n");
+      printf("\nDigite sua opcao: ");
+      scanf("%d", &option);
+      
+      switch(option) {
+          case 1: // Incluir nova turma
+              printf("\n=== INCLUIR NOVA TURMA ===\n");
+              printf("Digite o codigo da turma: ");
+              scanf("%d", &code);
+              insertOrderedClass(code);
+              break;
+              
+          case 2: // Remover turma
+              printf("\n=== REMOVER TURMA ===\n");
+              printf("Digite o codigo da turma a ser removida: ");
+              scanf("%d", &code);
+              removeClassAndDescendants(code);
+              break;
+              
+          case 3: // Consultar turmas
+              printf("\n=== TURMAS CADASTRADAS ===\n");
+              consultClass();
+              break;
+              
+          case 4: // Incluir aluno na turma
+              printf("\n=== INCLUIR ALUNO NA TURMA ===\n");
+              printf("Digite o nome do aluno: ");
+              scanf(" %[^\n]s", name);
+              printf("Digite o codigo do aluno: ");
+              scanf("%d", &code);
+              printf("Digite o codigo da turma: ");
+              scanf("%d", &classCode);
+              insertOrderedStudent(name, code, classCode);
+              break;
+              
+          case 5: // Remover aluno da turma
+              printf("\n=== REMOVER ALUNO DA TURMA ===\n");
+              printf("Digite o codigo do aluno: ");
+              scanf("%d", &code);
+              printf("Digite o codigo da turma: ");
+              scanf("%d", &classCode);
+              removeStudentFromClass(classCode, code);
+              break;
+              
+          case 6: // Consultar alunos da turma
+              printf("\n=== CONSULTAR ALUNOS DA TURMA ===\n");
+              printf("Digite o codigo da turma: ");
+              scanf("%d", &classCode);
+              consultStudents(classCode);
+              break;
+              
+          case 7: // Incluir aluno no grupo
+              printf("\n=== INCLUIR ALUNO NO GRUPO ===\n");
+              printf("Digite o codigo do aluno: ");
+              scanf("%d", &code);
+              printf("Digite o codigo da turma: ");
+              scanf("%d", &classCode);
+              printf("Digite o valor do grupo: ");
+              scanf("%d", &groupValue);
+              insertStudentToGroup(code, classCode, groupValue);
+              break;
+              
+          case 8: // Remover aluno do grupo
+              printf("\n=== REMOVER ALUNO DO GRUPO ===\n");
+              printf("Digite o codigo do aluno: ");
+              scanf("%d", &code);
+              printf("Digite o codigo da turma: ");
+              scanf("%d", &classCode);
+              printf("Digite o valor do grupo: ");
+              scanf("%d", &groupValue);
+              removeStudentFromGroup(classCode, groupValue, code);
+              break;
+              
+          case 9: // Consultar alunos dos grupos
+              printf("\n=== CONSULTAR GRUPOS DA TURMA ===\n");
+              printf("Digite o codigo da turma: ");
+              scanf("%d", &classCode);
+              consultStudentsPerGroup(classCode);
+              break;
+              
+          case 10: // Alunos sem grupo
+              printf("\n=== ALUNOS SEM GRUPO ===\n");
+              printf("Digite o codigo da turma: ");
+              scanf("%d", &classCode);
+              listStudentsWithoutGroup(classCode);
+              break;
+              
+          case 11: // Alunos em mais de uma turma
+              printf("\n=== ALUNOS EM MAIS DE UMA TURMA ===\n");
+              listStudentsInMultipleClasses();
+              break;
+              
+          case 12: // Alunos em apenas uma turma
+              printf("\n=== ALUNOS EM APENAS UMA TURMA ===\n");
+              listStudentsInSingleClass();
+              break;
+              
+          case 0: // Sair
+              printf("\nSaindo do sistema...\n");
+              break;
+              
+          default:
+              printf("\nOpcao invalida! Tente novamente.\n");
+      }
+      
+      if (option != 0) {
+          printf("\nPressione Enter para continuar...");
+          getchar(); // Limpa o buffer
+          getchar(); // Espera o Enter
+      }
+      
+  } while (option != 0);
+}
+
 int main() {
   startClass = NULL;
   startGroup = NULL;
@@ -661,6 +1114,8 @@ int main() {
   // write();
   // consultClass();
   consultStudentsPerGroup(204);
+
+  showMenu();
 
   return 0;
 }

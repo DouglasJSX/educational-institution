@@ -75,11 +75,6 @@ O sistema oferece as seguintes operações:
     cd educational-institution
     
   </li>
-  <li>Navegue até o diretório do projeto:<br />
-    
-    cd educational-institution
-    
-  </li>
   <li>Compile e execute o programa:<br />
     
     F6
